@@ -1,9 +1,16 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret';
 const COOKIE_NAME = 'refreshToken';  // or the cookie name you use
 
 function authMiddleware(req, res, next) {
-  const token = req.cookies?.[COOKIE_NAME];
+  let token = null;
+
+  // Prefer Authorization header when provided, otherwise fall back to the refresh token cookie
+  if (req.headers?.authorization && req.headers.authorization.startsWith('Bearer ')) {
+    token = req.headers.authorization.replace('Bearer ', '');
+  } else {
+    token = req.cookies?.[COOKIE_NAME];
+  }
 
   if (!token) {
     return res.status(401).json({ message: 'Unauthorized: No token provided.' });
