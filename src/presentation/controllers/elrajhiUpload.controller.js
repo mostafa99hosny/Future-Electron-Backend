@@ -88,6 +88,23 @@ function ensureTempPdf(batch_id, assetId) {
   return path.resolve(tempPath);
 }
 
+function convertArabicDigits(str) {
+  if (typeof str !== "string") return str;
+  const map = {
+    "٠": "0",
+    "١": "1",
+    "٢": "2",
+    "٣": "3",
+    "٤": "4",
+    "٥": "5",
+    "٦": "6",
+    "٧": "7",
+    "٨": "8",
+    "٩": "9",
+  };
+  return str.replace(/[٠-٩]/g, (d) => map[d] ?? d);
+}
+
 /**
  * Detect valuer column sets from headers.
  * We require base headers:
@@ -171,20 +188,25 @@ function buildValuersForAsset(assetRow, valuerCols) {
     // skip completely empty valuers
     if (allEmpty) continue;
 
-    let percentage = 0;
-
-    if (pctRaw !== undefined && pctRaw !== null && pctRaw !== "") {
-      const num = Number(pctRaw);
-
-      if (!Number.isNaN(num)) {
-        // If value is between 0 and 1, Excel likely stored it as a fraction (0.6 => 60%)
-        if (num >= 0 && num <= 1) {
-          percentage = num * 100;
-        } else {
-          percentage = num;
-        }
-      }
+    const pctString = convertArabicDigits(String(pctRaw ?? "")).trim();
+    if (!pctString) {
+      // Skip valuers that don't provide a percentage
+      continue;
     }
+
+    const pctNum = Number(
+      pctString
+        .replace(/[%٪]/g, "")
+        .replace(/,/g, ".")
+        .trim()
+    );
+
+    if (Number.isNaN(pctNum)) {
+      // Skip non-numeric percentages
+      continue;
+    }
+
+    const percentage = pctNum >= 0 && pctNum <= 1 ? pctNum * 100 : pctNum;
 
     valuers.push({
       valuerId: id != null && id !== "" ? String(id) : "", // you can enforce non-empty later if you want
